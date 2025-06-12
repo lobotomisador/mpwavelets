@@ -46,8 +46,30 @@ selected_damping = st.sidebar.selectbox(
     disabled=not selected_folder
 )
 
+# Add period cutoff slider
+st.sidebar.markdown("---")  # Add a separator
+st.sidebar.subheader("Period Filter")
+period_cutoff = st.sidebar.slider(
+    "Period Cutoff (s)",
+    min_value=1.0,
+    max_value=10.0,
+    value=10.0,
+    step=0.1,
+    disabled=not selected_folder
+)
+
+# Add toggle buttons in sidebar
+st.sidebar.markdown("---")  # Add a separator
+st.sidebar.subheader("Plot Controls")
+show_residuals = st.sidebar.checkbox("Show Residuals Plot", value=True)
+show_qq = st.sidebar.checkbox("Show Q-Q Plot", value=True)
+
 saratio = pd.read_csv(saratios_dir / selected_damping, index_col=0)
 dmf = pd.read_csv(DMF_DIR / selected_damping, index_col=0)
+
+# Filter data based on period cutoff
+saratio = saratio[saratio.index <= period_cutoff]
+dmf = dmf[dmf.index <= period_cutoff]
 
 df_melted = saratio.reset_index().melt(id_vars=['index'], var_name='Case', value_name='SaRatio')
 df_melted = df_melted.rename(columns={'index': 'T'})
@@ -97,32 +119,34 @@ st.write(f"P-value: {p_value:.3e}")
 predicted = slope * df_melted['SaRatio'] + intercept
 residuals = df_melted['DMF'] - predicted
 
-# Create residual plot
-fig_residuals = go.Figure()
-fig_residuals.add_trace(go.Scatter(
-    x=df_melted['SaRatio'],
-    y=residuals,
-    mode='markers',
-    marker=dict(
-        color=df_melted['T'],
-        colorscale='viridis',
-        opacity=0.3
-    ),
-    name='Residuals'
-))
+# Only show residuals plot if enabled
+if show_residuals:
+    # Create residual plot
+    fig_residuals = go.Figure()
+    fig_residuals.add_trace(go.Scatter(
+        x=df_melted['SaRatio'],
+        y=residuals,
+        mode='markers',
+        marker=dict(
+            color=df_melted['T'],
+            colorscale='viridis',
+            opacity=0.3
+        ),
+        name='Residuals'
+    ))
 
-# Add horizontal line at y=0
-fig_residuals.add_hline(y=0, line_dash="dash", line_color="red")
+    # Add horizontal line at y=0
+    fig_residuals.add_hline(y=0, line_dash="dash", line_color="red")
 
-fig_residuals.update_layout(
-    title='Residual Plot',
-    xaxis_title='SaRatio',
-    yaxis_title='Residuals',
-    showlegend=True,
-    plot_bgcolor='white'
-)
+    fig_residuals.update_layout(
+        title='Residual Plot',
+        xaxis_title='SaRatio',
+        yaxis_title='Residuals',
+        showlegend=True,
+        plot_bgcolor='white'
+    )
 
-st.plotly_chart(fig_residuals, use_container_width=True)
+    st.plotly_chart(fig_residuals, use_container_width=True)
 
 # Test for constant variance using Breusch-Pagan test
 
@@ -147,46 +171,47 @@ if bp_pvalue < 0.05:
 else:
     st.write("The test suggests the residuals have constant variance (homoscedasticity).")
 
+# Only show QQ plot if enabled
+if show_qq:
+    # Create QQ plot
+    fig_qq = go.Figure()
 
-# Create QQ plot
-fig_qq = go.Figure()
+    # Calculate theoretical quantiles
+    theoretical_quantiles = np.sort(stats.norm.ppf(np.linspace(0.01, 0.99, len(residuals))))
+    sample_quantiles = np.sort(residuals)
 
-# Calculate theoretical quantiles
-theoretical_quantiles = np.sort(stats.norm.ppf(np.linspace(0.01, 0.99, len(residuals))))
-sample_quantiles = np.sort(residuals)
+    # Add QQ plot
+    fig_qq.add_trace(go.Scatter(
+        x=theoretical_quantiles,
+        y=sample_quantiles,
+        mode='markers',
+        marker=dict(
+            color='blue',
+            opacity=0.5
+        ),
+        name='QQ Plot'
+    ))
 
-# Add QQ plot
-fig_qq.add_trace(go.Scatter(
-    x=theoretical_quantiles,
-    y=sample_quantiles,
-    mode='markers',
-    marker=dict(
-        color='blue',
-        opacity=0.5
-    ),
-    name='QQ Plot'
-))
+    # Add diagonal line
+    min_val = min(theoretical_quantiles.min(), sample_quantiles.min())
+    max_val = max(theoretical_quantiles.max(), sample_quantiles.max())
+    fig_qq.add_trace(go.Scatter(
+        x=[min_val, max_val],
+        y=[min_val, max_val],
+        mode='lines',
+        line=dict(color='red', dash='dash'),
+        name='Normal Line'
+    ))
 
-# Add diagonal line
-min_val = min(theoretical_quantiles.min(), sample_quantiles.min())
-max_val = max(theoretical_quantiles.max(), sample_quantiles.max())
-fig_qq.add_trace(go.Scatter(
-    x=[min_val, max_val],
-    y=[min_val, max_val],
-    mode='lines',
-    line=dict(color='red', dash='dash'),
-    name='Normal Line'
-))
+    fig_qq.update_layout(
+        title='Q-Q Plot for Residuals',
+        xaxis_title='Theoretical Quantiles',
+        yaxis_title='Sample Quantiles',
+        showlegend=True,
+        plot_bgcolor='white'
+    )
 
-fig_qq.update_layout(
-    title='Q-Q Plot for Residuals',
-    xaxis_title='Theoretical Quantiles',
-    yaxis_title='Sample Quantiles',
-    showlegend=True,
-    plot_bgcolor='white'
-)
-
-st.plotly_chart(fig_qq, use_container_width=True)
+    st.plotly_chart(fig_qq, use_container_width=True)
 
 # Perform Shapiro-Wilk test
 shapiro_test = stats.shapiro(residuals)
