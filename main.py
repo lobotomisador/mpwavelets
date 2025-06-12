@@ -79,12 +79,17 @@ dmf_melted = dmf.reset_index().melt(id_vars=['index'], var_name='Case', value_na
 dmf_melted = dmf_melted.rename(columns={'index': 'T'})
 df_melted['DMF'] = dmf_melted['DMF']
 
-slope, intercept, r_value, p_value, std_err = stats.linregress(df_melted['SaRatio'], df_melted['DMF'])
+# Center data around (1,1) for forced regression through (1,1)
+x_centered = df_melted['SaRatio'] - 1
+y_centered = df_melted['DMF'] - 1
+
+# Fit regression through origin (since data is centered)
+slope, _, r_value, p_value, std_err = stats.linregress(x_centered, y_centered)
+intercept = 1 - slope  # This ensures the line passes through (1,1)
 
 # Create regression line
 x_reg = np.linspace(df_melted['SaRatio'].min(), df_melted['SaRatio'].max(), 100)
 y_reg = slope * x_reg + intercept
-
 
 fig = px.scatter(df_melted, 
                  x='SaRatio', 
@@ -92,12 +97,25 @@ fig = px.scatter(df_melted,
                  color='T',
                  color_continuous_scale='viridis',
                  opacity=0.6,
-                 title='SaRatio vs DMF Colored by Period')
+                 title='SaRatio vs DMF Colored by Period (Regression through (1,1))')
 
 fig.update_layout(
     showlegend=True,
     plot_bgcolor='white',
 )
+
+# Add point (1,1) to the plot
+fig.add_trace(go.Scatter(
+    x=[1],
+    y=[1],
+    mode='markers',
+    marker=dict(
+        color='red',
+        size=10,
+        symbol='star'
+    ),
+    name='Reference Point (1,1)'
+))
 
 fig.add_trace(go.Scatter(
     x=x_reg,
