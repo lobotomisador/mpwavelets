@@ -9,6 +9,7 @@ from pathlib import Path
 from src.utils import find_files, find_folders
 from statsmodels.stats.diagnostic import het_breuschpagan
 import statsmodels.api as sm
+from statsmodels.stats.stattools import durbin_watson
 
 RESULTS_DIR = Path("results/")
 RECORDS_DIR = Path("records/")
@@ -108,16 +109,73 @@ fig.add_trace(go.Scatter(
 
 st.plotly_chart(fig, use_container_width=True)
 
-# Display regression statistics
-st.write("Regression Statistics:")
-st.write(f"Slope: {slope:.3f}")
-st.write(f"Intercept: {intercept:.3f}")
-st.write(f"R-squared: {r_value**2:.3f}")
-st.write(f"P-value: {p_value:.3e}")
-
-# Calculate residuals
+# Calculate residuals and perform tests
 predicted = slope * df_melted['SaRatio'] + intercept
 residuals = df_melted['DMF'] - predicted
+
+# Prepare data for Breusch-Pagan test
+X = sm.add_constant(df_melted['SaRatio'])
+model = sm.OLS(df_melted['DMF'], X).fit()
+residuals = model.resid
+
+# Perform tests
+bp_test = het_breuschpagan(residuals, X)
+bp_statistic, bp_pvalue, _, _ = bp_test
+
+# Perform Shapiro-Wilk test
+shapiro_test = stats.shapiro(residuals)
+shapiro_statistic, shapiro_pvalue = shapiro_test
+
+# Perform Durbin-Watson test for autocorrelation
+dw_statistic = durbin_watson(residuals)
+# Durbin-Watson test interpretation:
+# DW ≈ 2: No autocorrelation
+# DW < 1.5: Positive autocorrelation
+# DW > 2.5: Negative autocorrelation
+dw_result = "✅ No Autocorrelation" if 1.5 <= dw_statistic <= 2.5 else "❌ Autocorrelation Present"
+
+# Create a summary table for test results
+st.markdown("### Statistical Test Results")
+
+# Define test results
+test_results = {
+    "Test": [
+        "Breusch-Pagan (Heteroscedasticity)",
+        "Shapiro-Wilk (Normality)",
+        "Durbin-Watson (Autocorrelation)"
+    ],
+    "Statistic": [
+        f"{bp_statistic:.3f}",
+        f"{shapiro_statistic:.3f}",
+        f"{dw_statistic:.3f}"
+    ],
+    "P-value": [
+        f"{bp_pvalue:.2e}",
+        f"{shapiro_pvalue:.2e}",
+        "N/A"  # Durbin-Watson doesn't have a p-value
+    ],
+    "α": ["0.005", "0.005", "N/A"],
+    "Result": [
+        "✅ Homoscedastic" if bp_pvalue >= 0.005 else "❌ Heteroscedastic",
+        "✅ Normal" if shapiro_pvalue >= 0.005 else "❌ Non-normal",
+        dw_result
+    ]
+}
+
+# Create DataFrame and display as table
+df_results = pd.DataFrame(test_results)
+st.dataframe(
+    df_results,
+    hide_index=True,
+    use_container_width=True,
+    column_config={
+        "Test": st.column_config.TextColumn("Test", width="medium"),
+        "Statistic": st.column_config.NumberColumn("Statistic", format="%.3f"),
+        "P-value": st.column_config.TextColumn("P-value"),
+        "α": st.column_config.TextColumn("Significance Level"),
+        "Result": st.column_config.TextColumn("Result", width="medium")
+    }
+)
 
 # Only show residuals plot if enabled
 if show_residuals:
@@ -147,29 +205,6 @@ if show_residuals:
     )
 
     st.plotly_chart(fig_residuals, use_container_width=True)
-
-# Test for constant variance using Breusch-Pagan test
-
-# Prepare data for the test
-X = sm.add_constant(df_melted['SaRatio'])
-model = sm.OLS(df_melted['DMF'], X).fit()
-residuals = model.resid
-fitted_values = model.fittedvalues
-
-# Perform Breusch-Pagan test
-bp_test = het_breuschpagan(residuals, X)
-# het_breuschpagan returns 4 values: test statistic, p-value, f-statistic, and f-pvalue
-bp_statistic, bp_pvalue, _, _ = bp_test
-
-st.write("Breusch-Pagan Test for Heteroscedasticity:")
-st.write(f"Test Statistic: {bp_statistic:.3f}")
-st.write(f"P-value: {bp_pvalue:.3e}")
-
-# Interpret the results
-if bp_pvalue < 0.05:
-    st.write("The test suggests there is heteroscedasticity (non-constant variance) in the residuals.")
-else:
-    st.write("The test suggests the residuals have constant variance (homoscedasticity).")
 
 # Only show QQ plot if enabled
 if show_qq:
@@ -212,18 +247,4 @@ if show_qq:
     )
 
     st.plotly_chart(fig_qq, use_container_width=True)
-
-# Perform Shapiro-Wilk test
-shapiro_test = stats.shapiro(residuals)
-shapiro_statistic, shapiro_pvalue = shapiro_test
-
-st.write("Shapiro-Wilk Test for Normality (α = 0.005):")
-st.write(f"Test Statistic: {shapiro_statistic:.3f}")
-st.write(f"P-value: {shapiro_pvalue:.3e}")
-
-# Interpret the results
-if shapiro_pvalue < 0.005:
-    st.write("The test suggests the residuals are not normally distributed (reject H0 at α = 0.005).")
-else:
-    st.write("The test suggests the residuals are normally distributed (fail to reject H0 at α = 0.005).")
 
