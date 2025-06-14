@@ -39,7 +39,7 @@ def compute_rmse(x, y, slope):
     return rmse
 
 
-median_rmse_by_ab = {}
+# median_rmse_by_ab = {}
 rmse_by_ab = {}
 for ab_folder in saratios_by_ab:
     saratios_dir = SA_RATIOS_DIR / ab_folder

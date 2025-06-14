@@ -79,9 +79,14 @@ dmf_melted = dmf.reset_index().melt(id_vars=['index'], var_name='Case', value_na
 dmf_melted = dmf_melted.rename(columns={'index': 'T'})
 df_melted['DMF'] = dmf_melted['DMF']
 
+# damping_str = selected_damping.split('_')[1][:-4]
+# if float(damping_str) > 0.05:
+#     df_melted['DMF'] = df_melted['DMF'] * 100
+
 # Center data around (1,1) for forced regression through (1,1)
 x_centered = df_melted['SaRatio'] - 1
 y_centered = df_melted['DMF'] - 1
+
 
 # Fit regression through origin (since data is centered)
 slope, _, r_value, p_value, std_err = stats.linregress(x_centered, y_centered)
