@@ -66,3 +66,22 @@ def find_files(
         files = sorted(files)
 
     return files
+
+
+def create_melted_df(ratio_df, dmf_df, damping):
+    df_melted = ratio_df.reset_index().melt(
+        id_vars=['index'], 
+        var_name='Case', 
+        value_name='SaRatio'
+    ).rename(columns={'index': 'T'})
+    
+    dmf_melted = dmf_df.reset_index().melt(
+        id_vars=['index'], 
+        var_name='Case', 
+        value_name='DMF'
+    ).rename(columns={'index': 'T'})
+    
+    df_melted['DMF'] = dmf_melted['DMF']
+    df_melted['damping'] = damping
+    
+    return df_melted

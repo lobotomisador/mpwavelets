@@ -54,7 +54,7 @@ period_cutoff = st.sidebar.slider(
     "Period Cutoff (s)",
     min_value=1.0,
     max_value=10.0,
-    value=10.0,
+    value=5.0,
     step=0.1,
     disabled=not selected_folder
 )
