@@ -1,5 +1,4 @@
 import numpy as np
-print('what')
 from scipy import stats
 import streamlit as st
 import pandas as pd
