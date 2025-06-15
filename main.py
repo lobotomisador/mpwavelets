@@ -61,8 +61,8 @@ period_cutoff = st.sidebar.slider(
 # Add toggle buttons in sidebar
 st.sidebar.markdown("---")  # Add a separator
 st.sidebar.subheader("Plot Controls")
-show_residuals = st.sidebar.checkbox("Show Residuals Plot", value=True)
-show_qq = st.sidebar.checkbox("Show Q-Q Plot", value=True)
+show_residuals = st.sidebar.checkbox("Show Residuals Plot", value=False)
+show_qq = st.sidebar.checkbox("Show Q-Q Plot", value=False)
 
 saratio = pd.read_csv(saratios_dir / selected_damping, index_col=0)
 dmf = pd.read_csv(DMF_DIR / selected_damping, index_col=0)
