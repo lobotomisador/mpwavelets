@@ -1,10 +1,10 @@
 import numpy as np
+print('what')
 from scipy import stats
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-import os   
 from pathlib import Path
 from src.utils import find_files, find_folders
 from statsmodels.stats.diagnostic import het_breuschpagan
