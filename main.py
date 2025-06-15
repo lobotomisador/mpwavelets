@@ -65,7 +65,9 @@ show_residuals = st.sidebar.checkbox("Show Residuals Plot", value=False)
 show_qq = st.sidebar.checkbox("Show Q-Q Plot", value=False)
 
 saratio = pd.read_csv(saratios_dir / selected_damping, index_col=0)
+saratio.index = pd.to_numeric(saratio.index, errors='coerce')
 dmf = pd.read_csv(DMF_DIR / selected_damping, index_col=0)
+dmf.index = pd.to_numeric(dmf.index, errors='coerce')
 
 # Filter data based on period cutoff
 saratio = saratio[saratio.index <= period_cutoff]
