@@ -276,20 +276,20 @@ if show_qq:
 # Set random seed for reproducibility
 np.random.seed(42)
 
-# Create a 4x2 grid of random columns
-n_cols = 8  # 4 rows × 2 columns
+# Create a 8x3 grid of random columns
+n_cols = 24  # 8 rows × 3 columns
 random_cols = np.random.choice(saratio.columns, size=n_cols, replace=False)
 
 # Create subplots
-fig = make_subplots(rows=4, cols=2, 
-                    subplot_titles=[f'Column: {col}' for col in random_cols],
-                    vertical_spacing=0.1,
+fig = make_subplots(rows=8, cols=3, 
+                    subplot_titles=random_cols,
+                    vertical_spacing=0.05,  # Reduced spacing for more rows
                     horizontal_spacing=0.1)
 
 # Plot each random column
 for idx, col in enumerate(random_cols):
-    row = idx // 2 + 1
-    col_num = idx % 2 + 1
+    row = idx // 3 + 1  # Changed to 3 columns
+    col_num = idx % 3 + 1  # Changed to 3 columns
     
     xs = saratio.index
     ratios = saratio[col].values
@@ -308,19 +308,6 @@ for idx, col in enumerate(random_cols):
         row=row, col=col_num
     )
     
-    # # Add SaRatio trace
-    # fig.add_trace(
-    #     go.Scatter(
-    #         x=xs,
-    #         y=ratios,
-    #         mode='lines',
-    #         marker=dict(color='gray', opacity=0.5, size=8),
-    #         name=f'SaRatio {col}',
-    #         showlegend=False
-    #     ),
-    #     row=row, col=col_num
-    # )
-    
     # Add regression line
     y_reg = slope * (ratios - 1) + 1
     fig.add_trace(
@@ -338,15 +325,15 @@ for idx, col in enumerate(random_cols):
 # Update layout
 fig.update_layout(
     title='SaRatio vs DMF for Random Columns',
-    height=1000,  # Adjust height for 4 rows
-    width=1200,   # Adjust width for 2 columns
+    height=1600,  # Increased height for 8 rows
+    width=1200,   # Kept same width
     plot_bgcolor='white',
     showlegend=False
 )
 
 # Update axes labels
-for i in range(1, 5):
-    for j in range(1, 3):
+for i in range(1, 9):  # Changed to 8 rows
+    for j in range(1, 4):  # Changed to 3 columns
         fig.update_xaxes(title_text='T/Tp', row=i, col=j)
         fig.update_yaxes(title_text='DMF', row=i, col=j)
 
