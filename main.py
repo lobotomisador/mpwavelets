@@ -9,6 +9,7 @@ from src.utils import find_files, find_folders
 from statsmodels.stats.diagnostic import het_breuschpagan
 import statsmodels.api as sm
 from statsmodels.stats.stattools import durbin_watson
+from plotly.subplots import make_subplots
 
 RESULTS_DIR = Path("results/")
 RECORDS_DIR = Path("records/")
@@ -272,3 +273,81 @@ if show_qq:
 
     st.plotly_chart(fig_qq, use_container_width=True)
 
+# Set random seed for reproducibility
+np.random.seed(42)
+
+# Create a 4x2 grid of random columns
+n_cols = 8  # 4 rows × 2 columns
+random_cols = np.random.choice(saratio.columns, size=n_cols, replace=False)
+
+# Create subplots
+fig = make_subplots(rows=4, cols=2, 
+                    subplot_titles=[f'Column: {col}' for col in random_cols],
+                    vertical_spacing=0.1,
+                    horizontal_spacing=0.1)
+
+# Plot each random column
+for idx, col in enumerate(random_cols):
+    row = idx // 2 + 1
+    col_num = idx % 2 + 1
+    
+    xs = saratio.index
+    ratios = saratio[col].values
+    dmfs = dmf[col].values
+    
+    # Add DMF trace
+    fig.add_trace(
+        go.Scatter(
+            x=xs,
+            y=dmfs,
+            mode='lines',
+            marker=dict(color='black', opacity=0.5, size=8),
+            name=f'DMF {col}',
+            showlegend=False
+        ),
+        row=row, col=col_num
+    )
+    
+    # # Add SaRatio trace
+    # fig.add_trace(
+    #     go.Scatter(
+    #         x=xs,
+    #         y=ratios,
+    #         mode='lines',
+    #         marker=dict(color='gray', opacity=0.5, size=8),
+    #         name=f'SaRatio {col}',
+    #         showlegend=False
+    #     ),
+    #     row=row, col=col_num
+    # )
+    
+    # Add regression line
+    y_reg = slope * (ratios - 1) + 1
+    fig.add_trace(
+        go.Scatter(
+            x=xs,
+            y=y_reg,
+            mode='lines',
+            line=dict(color='red', width=2),
+            name=f'predictor {col}',
+            showlegend=False
+        ),
+        row=row, col=col_num
+    )
+
+# Update layout
+fig.update_layout(
+    title='SaRatio vs DMF for Random Columns',
+    height=1000,  # Adjust height for 4 rows
+    width=1200,   # Adjust width for 2 columns
+    plot_bgcolor='white',
+    showlegend=False
+)
+
+# Update axes labels
+for i in range(1, 5):
+    for j in range(1, 3):
+        fig.update_xaxes(title_text='T/Tp', row=i, col=j)
+        fig.update_yaxes(title_text='DMF', row=i, col=j)
+
+st.plotly_chart(fig, use_container_width=True)
