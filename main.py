@@ -286,6 +286,7 @@ fig = make_subplots(rows=8, cols=3,
                     vertical_spacing=0.05,  # Reduced spacing for more rows
                     horizontal_spacing=0.1)
 
+
 # Plot each random column
 for idx, col in enumerate(random_cols):
     row = idx // 3 + 1  # Changed to 3 columns
