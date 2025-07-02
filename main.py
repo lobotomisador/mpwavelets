@@ -14,6 +14,7 @@ from plotly.subplots import make_subplots
 RESULTS_DIR = Path("results/")
 RECORDS_DIR = Path("records/")
 SA_RATIOS_DIR = RESULTS_DIR / "saratios"
+SA_RATIOS_CONSTANT_DIR = RESULTS_DIR / "saratios_constant"
 DMF_DIR = RESULTS_DIR / "dmfs"
 
 
@@ -27,10 +28,23 @@ st.set_page_config(
 # Sidebar
 st.sidebar.title("Settings")
 
+# Add directory selection dropdown
+directory_option = st.sidebar.selectbox(
+    "Select Directory",
+    options=["saratios_constant", "saratios"],
+    help="Choose between regular saratios and saratios_constant directories"
+)
+
+# Set the base directory based on selection
+if directory_option == "saratios":
+    base_dir = SA_RATIOS_DIR
+else:
+    base_dir = SA_RATIOS_CONSTANT_DIR
+
 # Get ab_combinations folders
 # You can modify this path to point to where your ab_combinations folders are located
 # Get list of folders for dropdown
-folders = find_folders(SA_RATIOS_DIR)
+folders = find_folders(base_dir)
 
 # Dropdown in sidebar
 selected_folder = st.sidebar.selectbox(
@@ -39,7 +53,7 @@ selected_folder = st.sidebar.selectbox(
     disabled=not folders
 )
 
-saratios_dir = SA_RATIOS_DIR / selected_folder
+saratios_dir = base_dir / selected_folder
 
 selected_damping = st.sidebar.selectbox(
     "Select Damping",
@@ -86,13 +100,15 @@ df_melted['DMF'] = dmf_melted['DMF']
 #     df_melted['DMF'] = df_melted['DMF'] * 100
 
 # Center data around (1,1) for forced regression through (1,1)
-x_centered = df_melted['SaRatio'] - 1
-y_centered = df_melted['DMF'] - 1
+# x_centered = df_melted['SaRatio'] - 1
+# y_centered = df_melted['DMF'] - 1
+x_centered = df_melted['SaRatio']
+y_centered = df_melted['DMF']
 
 
 # Fit regression through origin (since data is centered)
-slope, _, r_value, p_value, std_err = stats.linregress(x_centered, y_centered)
-intercept = 1 - slope  # This ensures the line passes through (1,1)
+slope, intercept, r_value, p_value, std_err = stats.linregress(x_centered, y_centered)
+# intercept = 1 - slope  # This ensures the line passes through (1,1)
 
 # Create regression line
 x_reg = np.linspace(df_melted['SaRatio'].min(), df_melted['SaRatio'].max(), 100)
@@ -310,7 +326,8 @@ for idx, col in enumerate(random_cols):
     )
     
     # Add regression line
-    y_reg = slope * (ratios - 1) + 1
+    # y_reg = slope * (ratios - 1) + 1
+    y_reg = slope * ratios + intercept
     fig.add_trace(
         go.Scatter(
             x=xs,
