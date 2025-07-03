@@ -127,13 +127,29 @@ y_pred = slope * x_centered + intercept
 x_reg = np.linspace(df_melted['SaRatio'].min(), df_melted['SaRatio'].max(), 100)
 y_reg = slope * x_reg + intercept
 
-fig = px.scatter(df_melted, 
-                 x='SaRatio', 
-                 y=y_centered,
-                 color='T',
-                 color_continuous_scale='viridis',
-                 opacity=0.6,
-                 title='SaRatio vs DMF (Ordinary Least Squares Regression)')
+fig = go.Figure()
+
+fig.add_trace(go.Scattergl(
+    x=df_melted['SaRatio'],
+    y=y_centered,
+    mode='markers',
+    marker=dict(
+        color=df_melted['T'],
+        colorscale='viridis',
+        opacity=0.6,
+        showscale=True,
+        colorbar=dict(title='T')
+    ),
+    name='Data Points'
+))
+
+fig.update_layout(
+    title='SdRatio vs DMF',
+    xaxis_title='SdRatio',
+    yaxis_title='DMF',
+    showlegend=True,
+    plot_bgcolor='white',
+)
 
 fig.update_layout(
     showlegend=True,
@@ -162,11 +178,16 @@ st.plotly_chart(fig, use_container_width=True)
 predicted = slope * df_melted['SaRatio'] + intercept
 residuals = y_centered - predicted
 
+if use_weighted_ls:
+    weighted_residuals = residuals * np.sqrt(weights)
+else:
+    weighted_residuals = residuals
+
 X = sm.add_constant(df_melted['SaRatio'])
-bp_test = het_breuschpagan(residuals, X, robust=True)
+bp_test = het_breuschpagan(weighted_residuals, X, robust=True)
 bp_statistic, bp_pvalue, _, _ = bp_test
 
-white_test = het_white(residuals, X)
+white_test = het_white(weighted_residuals, X)
 white_statistic, white_pvalue, _, _ = white_test
 
 st.write(f'Regression parameters (y = {slope:.3f}x + {intercept:.3f})')
@@ -207,14 +228,16 @@ st.dataframe(
 
 if show_residuals:
     fig_residuals = go.Figure()
-    fig_residuals.add_trace(go.Scatter(
+    fig_residuals.add_trace(go.Scattergl(
         x=df_melted['SaRatio'],
-        y=residuals,
+        y=weighted_residuals,
         mode='markers',
         marker=dict(
             color=df_melted['T'],
             colorscale='viridis',
-            opacity=0.3
+            opacity=0.3,
+            showscale=True,
+            colorbar=dict(title='T')
         ),
         name='Residuals'
     ))
@@ -251,11 +274,11 @@ for idx, col in enumerate(random_cols):
     dmfs = dmf[col].values
     
     fig.add_trace(
-        go.Scatter(
+        go.Scattergl(
             x=xs,
             y=dmfs,
             mode='lines',
-            marker=dict(color='black', opacity=0.5, size=8),
+            marker=dict(color='black', opacity=0.5, size=4),
             name=f'DMF {col}',
             showlegend=False
         ),
@@ -264,11 +287,11 @@ for idx, col in enumerate(random_cols):
     
     y_reg = slope * ratios + intercept
     fig.add_trace(
-        go.Scatter(
+        go.Scattergl(
             x=xs,
             y=y_reg,
             mode='lines',
-            line=dict(color='red', width=2),
+            marker=dict(color='red', size=3),
             name=f'predictor {col}',
             showlegend=False
         ),
@@ -276,7 +299,7 @@ for idx, col in enumerate(random_cols):
     )
 
 fig.update_layout(
-    title='SaRatio vs DMF for Random Columns',
+    title='SdRatio model vs DMF for all wavelets',
     height=4400,
     width=1200,
     plot_bgcolor='white',
