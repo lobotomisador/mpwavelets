@@ -70,6 +70,10 @@ period_cutoff = st.sidebar.slider(
 )
 
 st.sidebar.markdown("---")
+st.sidebar.subheader("Options")
+force_through_origin = st.sidebar.checkbox("Force fit through (1,1)", value=False)
+
+st.sidebar.markdown("---")
 st.sidebar.subheader("Plot Controls")
 show_residuals = st.sidebar.checkbox("Show Residuals Plot", value=False)
 
@@ -94,10 +98,17 @@ df_melted['DMF'] = dmf_melted['DMF']
 x_centered = df_melted['SaRatio']
 y_centered = df_melted['DMF']
 
-
-X = np.column_stack([x_centered, np.ones_like(x_centered)])
-beta = np.linalg.inv(X.T @ X) @ X.T @ y_centered
-slope, intercept = beta[0], beta[1]
+if force_through_origin:
+    x_shifted = x_centered - 1
+    y_shifted = y_centered - 1
+    X = sm.add_constant(x_shifted, has_constant='add')
+    model = sm.OLS(y_shifted, X).fit()
+    slope = model.params[1]
+    intercept = 1 - slope
+else:
+    X = sm.add_constant(x_centered)
+    model = sm.OLS(y_centered, X).fit()
+    slope, intercept = model.params[1], model.params[0]
 
 y_pred = slope * x_centered + intercept
 
