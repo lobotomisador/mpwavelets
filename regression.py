@@ -17,7 +17,7 @@ SA_RATIOS_DIR = RESULTS_DIR / "saratios"
 DMF_DIR = RESULTS_DIR / "dmfs"
 
 
-PERIOD_CUTOFF = 5.0
+PERIOD_CUTOFF = 4.0
 
 dmf_files = find_files(DMF_DIR, only_csv=True)
 saratios_by_ab = find_folders(SA_RATIOS_DIR)
