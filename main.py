@@ -1,12 +1,13 @@
 import numpy as np
 from scipy import stats
+from scipy.stats import boxcox, gaussian_kde
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from pathlib import Path
 from src.utils import find_files, find_folders
-from statsmodels.stats.diagnostic import het_breuschpagan
+from statsmodels.stats.diagnostic import het_breuschpagan, het_white
 import statsmodels.api as sm
 
 from plotly.subplots import make_subplots
@@ -41,7 +42,7 @@ else:
 
 folders = find_folders(base_dir)
 
-ab_index = folders.index('a=0.01_b=2.10')
+ab_index = folders.index('a=0.020_b=2.100')
 
 
 selected_folder = st.sidebar.selectbox(
@@ -55,7 +56,7 @@ saratios_dir = base_dir / selected_folder
 
 selected_damping = st.sidebar.selectbox(
     "Select Damping",
-    options=find_files(saratios_dir, only_csv=True),
+    options=find_files(DMF_DIR, only_csv=True),
     disabled=not selected_folder
 )
 
@@ -74,7 +75,7 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("Plot Controls")
 show_residuals = st.sidebar.checkbox("Show Residuals Plot", value=False)
 
-saratio = pd.read_csv(saratios_dir / selected_damping, index_col=0)
+saratio = pd.read_csv(saratios_dir / 'pulses_0.05.csv', index_col=0)
 saratio.index = pd.to_numeric(saratio.index, errors='coerce')
 dmf = pd.read_csv(DMF_DIR / selected_damping, index_col=0)
 dmf.index = pd.to_numeric(dmf.index, errors='coerce')
@@ -91,25 +92,41 @@ dmf_melted = dmf_melted.rename(columns={'index': 'T'})
 df_melted['DMF'] = dmf_melted['DMF']
 
 
-x_centered = df_melted['SaRatio'] - 1
-y_centered = df_melted['DMF'] - 1
-# x_centered = df_melted['SaRatio']
-# y_centered = df_melted['DMF']
+# x_centered = df_melted['SaRatio'] - 1
+# y_centered = df_melted['DMF'] - 1
+x_centered = df_melted['SaRatio']
+y_centered = df_melted['DMF']
 
+# y_centered, lambda_optimal = boxcox(y_centered)
+# lambda_optimal
 
-slope, intercept, r_value, p_value, std_err = stats.linregress(x_centered, y_centered)
-intercept = 1 - slope  # This ensures the line passes through (1,1)
+data_points = np.column_stack([x_centered, y_centered])
+kde = gaussian_kde(data_points.T)
+kde.set_bandwidth(10)
+densities = kde(data_points.T)
+weights = 1.0 / (densities + 1e-10)  # Add small constant to avoid division by zero
+weights = weights / np.sum(weights) * len(weights)  # Normalize weights
+
+X = np.column_stack([x_centered, np.ones_like(x_centered)])
+W = np.diag(weights)
+beta = np.linalg.inv(X.T @ W @ X) @ X.T @ W @ y_centered
+slope, intercept = beta[0], beta[1]
+
+# intercept = 1 - slope  # This ensures the line passes through (1,1)
+y_pred = slope * x_centered + intercept
 
 x_reg = np.linspace(df_melted['SaRatio'].min(), df_melted['SaRatio'].max(), 100)
 y_reg = slope * x_reg + intercept
 
+df_melted['weights'] = weights
+
 fig = px.scatter(df_melted, 
                  x='SaRatio', 
-                 y='DMF',
+                 y=y_centered,
                  color='T',
                  color_continuous_scale='viridis',
                  opacity=0.6,
-                 title='SaRatio vs DMF Colored by Period (Regression through (1,1))')
+                 title='SaRatio vs DMF Colored by KDE Weights (Weighted Regression)')
 
 fig.update_layout(
     showlegend=True,
@@ -139,19 +156,35 @@ fig.add_trace(go.Scatter(
 st.plotly_chart(fig, use_container_width=True)
 
 predicted = slope * df_melted['SaRatio'] + intercept
-residuals = df_melted['DMF'] - predicted
+residuals = y_centered - predicted
+weighted_residuals = np.sqrt(weights) * residuals
 
 X = sm.add_constant(df_melted['SaRatio'])
-bp_test = het_breuschpagan(residuals, X)
+bp_test = het_breuschpagan(weighted_residuals, X, robust=True)
 bp_statistic, bp_pvalue, _, _ = bp_test
+
+white_test = het_white(weighted_residuals, X)
+white_statistic, white_pvalue, _, _ = white_test
 
 st.markdown("### Statistical Test Results")
 test_results = {
-    "Test": ["Breusch-Pagan (Heteroscedasticity)"],
-    "Statistic": [f"{bp_statistic:.3f}"],
-    "P-value": [f"{bp_pvalue:.2e}"],
-    "α": ["0.005"],
-    "Result": ["✅ Homoscedastic" if bp_pvalue >= 0.005 else "❌ Heteroscedastic"]
+    "Test": [
+        "Breusch-Pagan (Heteroscedasticity)",
+        "White (Heteroscedasticity)"
+    ],
+    "Statistic": [
+        f"{bp_statistic:.3f}",
+        f"{white_statistic:.3f}"
+    ],
+    "P-value": [
+        f"{bp_pvalue:.2e}",
+        f"{white_pvalue:.2e}"
+    ],
+    "α": ["0.005", "0.005"],
+    "Result": [
+        "✅ Homoscedastic" if bp_pvalue >= 0.005 else "❌ Heteroscedastic",
+        "✅ Homoscedastic" if white_pvalue >= 0.005 else "❌ Heteroscedastic"
+    ]
 }
 
 df_results = pd.DataFrame(test_results)
@@ -172,22 +205,22 @@ if show_residuals:
     fig_residuals = go.Figure()
     fig_residuals.add_trace(go.Scatter(
         x=df_melted['SaRatio'],
-        y=residuals,
+        y=weighted_residuals,
         mode='markers',
         marker=dict(
-            color=df_melted['T'],
+            color=df_melted['weights'],
             colorscale='viridis',
             opacity=0.3
         ),
-        name='Residuals'
+        name='Weighted Residuals'
     ))
 
     fig_residuals.add_hline(y=0, line_dash="dash", line_color="red")
 
     fig_residuals.update_layout(
-        title='Residual Plot',
+        title='Weighted Residual Plot',
         xaxis_title='SaRatio',
-        yaxis_title='Residuals',
+        yaxis_title='Weighted Residuals',
         showlegend=True,
         plot_bgcolor='white'
     )
