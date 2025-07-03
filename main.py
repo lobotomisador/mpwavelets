@@ -19,14 +19,12 @@ SA_RATIOS_CONSTANT_DIR = RESULTS_DIR / "saratios_constant"
 DMF_DIR = RESULTS_DIR / "dmfs"
 
 
-# Set page config
 st.set_page_config(
     page_title="MP Wavelets Analysis",
     page_icon="📊",
     layout="wide"
 )
 
-# Sidebar
 st.sidebar.title("Settings")
 
 directory_option = st.sidebar.selectbox(
@@ -80,7 +78,6 @@ saratio.index = pd.to_numeric(saratio.index, errors='coerce')
 dmf = pd.read_csv(DMF_DIR / selected_damping, index_col=0)
 dmf.index = pd.to_numeric(dmf.index, errors='coerce')
 
-# Filter data based on period cutoff
 saratio = saratio[saratio.index <= period_cutoff]
 dmf = dmf[dmf.index <= period_cutoff]
 
@@ -97,28 +94,15 @@ df_melted['DMF'] = dmf_melted['DMF']
 x_centered = df_melted['SaRatio']
 y_centered = df_melted['DMF']
 
-# y_centered, lambda_optimal = boxcox(y_centered)
-# lambda_optimal
-
-data_points = np.column_stack([x_centered, y_centered])
-kde = gaussian_kde(data_points.T)
-kde.set_bandwidth(10)
-densities = kde(data_points.T)
-weights = 1.0 / (densities + 1e-10)  # Add small constant to avoid division by zero
-weights = weights / np.sum(weights) * len(weights)  # Normalize weights
 
 X = np.column_stack([x_centered, np.ones_like(x_centered)])
-W = np.diag(weights)
-beta = np.linalg.inv(X.T @ W @ X) @ X.T @ W @ y_centered
+beta = np.linalg.inv(X.T @ X) @ X.T @ y_centered
 slope, intercept = beta[0], beta[1]
 
-# intercept = 1 - slope  # This ensures the line passes through (1,1)
 y_pred = slope * x_centered + intercept
 
 x_reg = np.linspace(df_melted['SaRatio'].min(), df_melted['SaRatio'].max(), 100)
 y_reg = slope * x_reg + intercept
-
-df_melted['weights'] = weights
 
 fig = px.scatter(df_melted, 
                  x='SaRatio', 
@@ -126,7 +110,7 @@ fig = px.scatter(df_melted,
                  color='T',
                  color_continuous_scale='viridis',
                  opacity=0.6,
-                 title='SaRatio vs DMF Colored by KDE Weights (Weighted Regression)')
+                 title='SaRatio vs DMF (Ordinary Least Squares Regression)')
 
 fig.update_layout(
     showlegend=True,
@@ -142,30 +126,27 @@ fig.add_trace(go.Scatter(
         size=10,
         symbol='star'
     ),
-    name='Reference Point (1,1)'
 ))
 
 fig.add_trace(go.Scatter(
     x=x_reg,
     y=y_reg,
     mode='lines',
-    name=f'Regression (y = {slope:.3f}x + {intercept:.3f})',
     line=dict(color='red', width=2)
 ))
-
 st.plotly_chart(fig, use_container_width=True)
 
 predicted = slope * df_melted['SaRatio'] + intercept
 residuals = y_centered - predicted
-weighted_residuals = np.sqrt(weights) * residuals
 
 X = sm.add_constant(df_melted['SaRatio'])
-bp_test = het_breuschpagan(weighted_residuals, X, robust=True)
+bp_test = het_breuschpagan(residuals, X, robust=True)
 bp_statistic, bp_pvalue, _, _ = bp_test
 
-white_test = het_white(weighted_residuals, X)
+white_test = het_white(residuals, X)
 white_statistic, white_pvalue, _, _ = white_test
 
+st.write(f'Regression parameters (y = {slope:.3f}x + {intercept:.3f})')
 st.markdown("### Statistical Test Results")
 test_results = {
     "Test": [
@@ -205,22 +186,22 @@ if show_residuals:
     fig_residuals = go.Figure()
     fig_residuals.add_trace(go.Scatter(
         x=df_melted['SaRatio'],
-        y=weighted_residuals,
+        y=residuals,
         mode='markers',
         marker=dict(
-            color=df_melted['weights'],
+            color=df_melted['T'],
             colorscale='viridis',
             opacity=0.3
         ),
-        name='Weighted Residuals'
+        name='Residuals'
     ))
 
     fig_residuals.add_hline(y=0, line_dash="dash", line_color="red")
 
     fig_residuals.update_layout(
-        title='Weighted Residual Plot',
+        title='Residual Plot',
         xaxis_title='SaRatio',
-        yaxis_title='Weighted Residuals',
+        yaxis_title='Residuals',
         showlegend=True,
         plot_bgcolor='white'
     )
