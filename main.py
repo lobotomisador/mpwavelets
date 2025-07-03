@@ -72,6 +72,7 @@ period_cutoff = st.sidebar.slider(
 st.sidebar.markdown("---")
 st.sidebar.subheader("Options")
 force_through_origin = st.sidebar.checkbox("Force fit through (1,1)", value=False)
+use_weighted_ls = st.sidebar.checkbox("Use Weighted Least Squares (KDE weights)", value=False)
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("Plot Controls")
@@ -93,21 +94,32 @@ dmf_melted = dmf_melted.rename(columns={'index': 'T'})
 df_melted['DMF'] = dmf_melted['DMF']
 
 
-# x_centered = df_melted['SaRatio'] - 1
-# y_centered = df_melted['DMF'] - 1
 x_centered = df_melted['SaRatio']
 y_centered = df_melted['DMF']
+
+if use_weighted_ls:
+    kde = gaussian_kde(np.column_stack([x_centered, y_centered]).T, bw_method='silverman')
+    points = np.column_stack([x_centered, y_centered])
+    densities = kde(points.T)
+    weights = 1.0 / (densities + 1e-10)
+    weights = weights / np.sum(weights) * len(weights)
 
 if force_through_origin:
     x_shifted = x_centered - 1
     y_shifted = y_centered - 1
     X = sm.add_constant(x_shifted, has_constant='add')
-    model = sm.OLS(y_shifted, X).fit()
+    if use_weighted_ls:
+        model = sm.WLS(y_shifted, X, weights=weights).fit()
+    else:
+        model = sm.OLS(y_shifted, X).fit()
     slope = model.params[1]
     intercept = 1 - slope
 else:
     X = sm.add_constant(x_centered)
-    model = sm.OLS(y_centered, X).fit()
+    if use_weighted_ls:
+        model = sm.WLS(y_centered, X, weights=weights).fit()
+    else:
+        model = sm.OLS(y_centered, X).fit()
     slope, intercept = model.params[1], model.params[0]
 
 y_pred = slope * x_centered + intercept
