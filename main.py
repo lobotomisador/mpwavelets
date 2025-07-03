@@ -6,6 +6,8 @@ import plotly.graph_objects as go
 import plotly.express as px
 from pathlib import Path
 from src.utils import find_files, find_folders
+from statsmodels.stats.diagnostic import het_breuschpagan
+import statsmodels.api as sm
 
 from plotly.subplots import make_subplots
 
@@ -138,6 +140,33 @@ st.plotly_chart(fig, use_container_width=True)
 
 predicted = slope * df_melted['SaRatio'] + intercept
 residuals = df_melted['DMF'] - predicted
+
+X = sm.add_constant(df_melted['SaRatio'])
+bp_test = het_breuschpagan(residuals, X)
+bp_statistic, bp_pvalue, _, _ = bp_test
+
+st.markdown("### Statistical Test Results")
+test_results = {
+    "Test": ["Breusch-Pagan (Heteroscedasticity)"],
+    "Statistic": [f"{bp_statistic:.3f}"],
+    "P-value": [f"{bp_pvalue:.2e}"],
+    "α": ["0.005"],
+    "Result": ["✅ Homoscedastic" if bp_pvalue >= 0.005 else "❌ Heteroscedastic"]
+}
+
+df_results = pd.DataFrame(test_results)
+st.dataframe(
+    df_results,
+    hide_index=True,
+    use_container_width=True,
+    column_config={
+        "Test": st.column_config.TextColumn("Test", width="medium"),
+        "Statistic": st.column_config.NumberColumn("Statistic", format="%.3f"),
+        "P-value": st.column_config.TextColumn("P-value"),
+        "α": st.column_config.TextColumn("Significance Level"),
+        "Result": st.column_config.TextColumn("Result", width="medium")
+    }
+)
 
 if show_residuals:
     fig_residuals = go.Figure()
