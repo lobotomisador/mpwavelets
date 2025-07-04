@@ -60,11 +60,11 @@ selected_damping = st.sidebar.selectbox(
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("Period Filter")
-period_cutoff = st.sidebar.slider(
-    "Period Cutoff (s)",
-    min_value=1.0,
+period_range = st.sidebar.slider(
+    "Period Range (s)",
+    min_value=0.1,
     max_value=10.0,
-    value=3.0,
+    value=(0.1, 3.0),
     step=0.1,
     disabled=not selected_folder
 )
@@ -76,15 +76,16 @@ use_weighted_ls = st.sidebar.checkbox("Use Weighted Least Squares (KDE weights)"
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("Plot Controls")
-show_residuals = st.sidebar.checkbox("Show Residuals Plot", value=False)
+show_residuals = st.sidebar.checkbox("Show Residuals Plot", value=True)
 
 saratio = pd.read_csv(saratios_dir / 'pulses_0.05.csv', index_col=0)
 saratio.index = pd.to_numeric(saratio.index, errors='coerce')
 dmf = pd.read_csv(DMF_DIR / selected_damping, index_col=0)
 dmf.index = pd.to_numeric(dmf.index, errors='coerce')
 
-saratio = saratio[saratio.index <= period_cutoff]
-dmf = dmf[dmf.index <= period_cutoff]
+period_min, period_max = period_range
+saratio = saratio[(saratio.index >= period_min) & (saratio.index <= period_max)]
+dmf = dmf[(dmf.index >= period_min) & (dmf.index <= period_max)]
 
 df_melted = saratio.reset_index().melt(id_vars=['index'], var_name='Case', value_name='SaRatio')
 df_melted = df_melted.rename(columns={'index': 'T'})
@@ -124,7 +125,7 @@ else:
 
 y_pred = slope * x_centered + intercept
 
-x_reg = np.linspace(df_melted['SaRatio'].min(), df_melted['SaRatio'].max(), 100)
+x_reg = np.linspace(df_melted['SaRatio'].min() - 0.2, df_melted['SaRatio'].max() + 0.2, 100)
 y_reg = slope * x_reg + intercept
 
 fig = go.Figure()
