@@ -9,6 +9,8 @@ from pathlib import Path
 from src.utils import find_files, find_folders
 from statsmodels.stats.diagnostic import het_breuschpagan, het_white
 import statsmodels.api as sm
+import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 from plotly.subplots import make_subplots
 
@@ -128,16 +130,25 @@ y_pred = slope * x_centered + intercept
 x_reg = np.linspace(df_melted['SaRatio'].min() - 0.2, df_melted['SaRatio'].max() + 0.2, 100)
 y_reg = slope * x_reg + intercept
 
+X_reg = sm.add_constant(x_reg)
+prediction = model.get_prediction(X_reg)
+prediction_summary = prediction.summary_frame(alpha=0.005)
+lower = prediction_summary['obs_ci_lower']
+upper = prediction_summary['obs_ci_upper']
+
 fig = go.Figure()
 
+
+sampled_indices = np.random.choice(len(df_melted), size=len(df_melted)//2, replace=False)
 fig.add_trace(go.Scattergl(
-    x=df_melted['SaRatio'],
-    y=y_centered,
+    x=df_melted['SaRatio'].iloc[sampled_indices],
+    y=y_centered.iloc[sampled_indices],
     mode='markers',
     marker=dict(
-        color=df_melted['T'],
+        color=df_melted['T'].iloc[sampled_indices],
         colorscale='viridis',
-        opacity=0.6,
+        opacity=0.8,
+        size=4,
         showscale=True,
         colorbar=dict(title='T')
     ),
@@ -172,9 +183,12 @@ fig.add_trace(go.Scatter(
     x=x_reg,
     y=y_reg,
     mode='lines',
-    line=dict(color='red', width=2)
+    line=dict(color='red', width=2),
+    name='Regression Line'
 ))
+
 st.plotly_chart(fig, use_container_width=True)
+
 
 predicted = slope * df_melted['SaRatio'] + intercept
 residuals = y_centered - predicted
@@ -230,13 +244,14 @@ st.dataframe(
 if show_residuals:
     fig_residuals = go.Figure()
     fig_residuals.add_trace(go.Scattergl(
-        x=df_melted['SaRatio'],
-        y=weighted_residuals,
+        x=df_melted['SaRatio'].iloc[sampled_indices],
+        y=weighted_residuals.iloc[sampled_indices],
         mode='markers',
         marker=dict(
-            color=df_melted['T'],
+            color=df_melted['T'].iloc[sampled_indices],
             colorscale='viridis',
-            opacity=0.3,
+            opacity=0.8,
+            size=4,
             showscale=True,
             colorbar=dict(title='T')
         ),
@@ -247,11 +262,74 @@ if show_residuals:
 
     fig_residuals.update_layout(
         title='Residual Plot',
-        xaxis_title='SaRatio',
+        xaxis_title='SdRatio',
         yaxis_title='Residuals',
         showlegend=True,
         plot_bgcolor='white'
     )
+
+    # Professional export for PDF using Plotly
+    fig_residuals_pdf = go.Figure()
+    fig_residuals_pdf.add_trace(go.Scattergl(
+        x=df_melted['SaRatio'].iloc[sampled_indices],
+        y=weighted_residuals.iloc[sampled_indices],
+        mode='markers',
+        marker=dict(
+            color=df_melted['T'].iloc[sampled_indices],
+            colorscale='plasma',
+            opacity=1.0,
+            size=4,
+            showscale=True,
+            colorbar=dict(title='T', thickness=18, len=0.8, x=1.02, y=0.5, yanchor='middle')
+        ),
+        name='Residuals'
+    ))
+    fig_residuals_pdf.add_hline(y=0, line_dash="dash", line_color="gray", line_width=2)
+    fig_residuals_pdf.update_layout(
+        xaxis_title='SdRatio',
+        yaxis_title='Residuals',
+        showlegend=False,
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        margin=dict(l=40, r=40, t=10, b=40),
+        xaxis=dict(
+            showgrid=True,
+            gridcolor='lightgray',
+            gridwidth=1,
+            linecolor='black',
+            linewidth=2,
+            mirror=True,
+            zeroline=False,
+            title_font=dict(size=20),
+            title_standoff=40,
+            ticks='inside',
+            ticklen=12,
+            tickwidth=2,
+            tickcolor='black',
+            tickson='boundaries',
+            range=[1, 4],
+            dtick=0.5
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor='lightgray',
+            gridwidth=1,
+            linecolor='black',
+            linewidth=2,
+            mirror=True,
+            zeroline=False,
+            title_font=dict(size=20),
+            title_standoff=40,
+            ticks='inside',
+            ticklen=12,
+            tickwidth=2,
+            tickcolor='black',
+            tickson='boundaries',
+            range=[-0.15, 0.15],
+            dtick=0.05
+        )
+    )
+    fig_residuals_pdf.write_image("residuals_plot.pdf")
 
     st.plotly_chart(fig_residuals, use_container_width=True)
 
