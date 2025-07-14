@@ -89,10 +89,16 @@ period_min, period_max = period_range
 saratio = saratio[(saratio.index >= period_min) & (saratio.index <= period_max)]
 dmf = dmf[(dmf.index >= period_min) & (dmf.index <= period_max)]
 
-df_melted = saratio.reset_index().melt(id_vars=['index'], var_name='Case', value_name='SaRatio')
+saratio_reset = saratio.reset_index()
+if 'index' not in saratio_reset.columns:
+    saratio_reset = saratio.reset_index(drop=False)
+df_melted = saratio_reset.melt(id_vars=['index'], var_name='Case', value_name='SaRatio')
 df_melted = df_melted.rename(columns={'index': 'T'})
 
-dmf_melted = dmf.reset_index().melt(id_vars=['index'], var_name='Case', value_name='DMF')
+dmf_reset = dmf.reset_index()
+if 'index' not in dmf_reset.columns:
+    dmf_reset = dmf.reset_index(drop=False)
+dmf_melted = dmf_reset.melt(id_vars=['index'], var_name='Case', value_name='DMF')
 dmf_melted = dmf_melted.rename(columns={'index': 'T'})
 df_melted['DMF'] = dmf_melted['DMF']
 
