@@ -335,7 +335,7 @@ if show_residuals:
             dtick=0.05
         )
     )
-    fig_residuals_pdf.write_image("residuals_plot.pdf")
+    # fig_residuals_pdf.write_image("residuals_plot.pdf")
 
     st.plotly_chart(fig_residuals, use_container_width=True)
 
@@ -493,7 +493,7 @@ for i in range(1, 3):
         )
 
 
-fig_grid.write_image('scatter_grid.pdf')
+# fig_grid.write_image('scatter_grid.pdf')
 
 random_cols_grid = np.random.choice(saratio.columns, size=16, replace=False)
 fig_wavelet_grid = make_subplots(rows=4, cols=4, 
@@ -555,4 +555,4 @@ for i in range(1, 5):
             title_text='DMF' if show_y_title else '',
             row=i, col=j
         )
-fig_wavelet_grid.write_image('sdratio_model_vs_dmf_grid.pdf')
+# fig_wavelet_grid.write_image('sdratio_model_vs_dmf_grid.pdf')
