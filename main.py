@@ -6,7 +6,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from pathlib import Path
-from src.utils import find_files, find_folders
+from src.utils import find_files, find_folders, create_melted_df
 from statsmodels.stats.diagnostic import het_breuschpagan, het_white
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
@@ -89,11 +89,7 @@ period_min, period_max = period_range
 saratio = saratio[(saratio.index >= period_min) & (saratio.index <= period_max)]
 dmf = dmf[(dmf.index >= period_min) & (dmf.index <= period_max)]
 
-df_melted = saratio.reset_index().melt(id_vars=['index'], var_name='Case', value_name='SaRatio')
-df_melted = df_melted.rename(columns={'index': 'T'})
-
-dmf_melted = dmf.reset_index().melt(id_vars=['index'], var_name='Case', value_name='DMF')
-dmf_melted = dmf_melted.rename(columns={'index': 'T'})
+df_melted = create_melted_df(saratio, dmf, selected_damping)
 
 x_centered = df_melted['SaRatio']
 y_centered = df_melted['DMF']
@@ -404,11 +400,7 @@ for i, damping_file in enumerate(selected_dampings):
     period_min, period_max = period_range
     saratio_grid = saratio_grid[(saratio_grid.index >= period_min) & (saratio_grid.index <= period_max)]
     dmf_grid = dmf_grid[(dmf_grid.index >= period_min) & (dmf_grid.index <= period_max)]
-    df_melted_grid = saratio_grid.reset_index().melt(id_vars=['index'], var_name='Case', value_name='SaRatio')
-    df_melted_grid = df_melted_grid.rename(columns={'index': 'T'})
-    dmf_melted_grid = dmf_grid.reset_index().melt(id_vars=['index'], var_name='Case', value_name='DMF')
-    dmf_melted_grid = dmf_melted_grid.rename(columns={'index': 'T'})
-    df_melted_grid['DMF'] = dmf_melted_grid['DMF']
+    df_melted_grid = create_melted_df(saratio_grid, dmf_grid, damping_file)
     x = df_melted_grid['SaRatio']
     y = df_melted_grid['DMF']
     X = sm.add_constant(x)
