@@ -1,4 +1,4 @@
-FROM python:3.13 AS builder
+FROM python:3.13.0 AS builder
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
@@ -8,7 +8,7 @@ RUN pip install uv
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen
 
-FROM python:3.13-slim
+FROM python:3.13.0-slim
 WORKDIR /app
 COPY --from=builder /app/.venv .venv/
 COPY . .
